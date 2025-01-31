@@ -19,8 +19,8 @@
 
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
 use std::task::Poll;
+use std::task::{ready, Context};
 
 use super::metrics::BaselineMetrics;
 use super::{ExecutionPlan, RecordBatchStream, SendableRecordBatchStream};
@@ -391,7 +391,20 @@ where
     type Item = Result<RecordBatch>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.project().stream.poll_next(cx)
+        let this = self.project();
+        match ready!(this.stream.poll_next(cx)) {
+            Some(Ok(rb)) => {
+                debug_assert_eq!(
+                    rb.schema(),
+                    *this.schema,
+                    "RecordBatch schema {} does not match RecordBatchStream schema {}",
+                    rb.schema(),
+                    this.schema
+                );
+                Poll::Ready(Some(Ok(rb)))
+            }
+            otherwise => Poll::Ready(otherwise),
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
