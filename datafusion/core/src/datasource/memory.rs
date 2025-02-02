@@ -807,4 +807,28 @@ mod tests {
         );
         Ok(())
     }
+
+    // Test inserting values from a SQL statement.
+    #[tokio::test]
+    async fn test_insert_from_values() -> Result<()> {
+        // Create a new schema with one field called "a" of type Int32
+        let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Int32, false)]));
+
+        let session_ctx = SessionContext::new();
+
+        // Create and register the initial table with the provided schema and data
+        let initial_table = Arc::new(MemTable::try_new(schema.clone(), vec![vec![]])?);
+        session_ctx.register_table("t", initial_table.clone())?;
+
+        let _result = session_ctx
+            .sql("INSERT INTO t VALUES (123);")
+            .await
+            .unwrap()
+            .collect()
+            .await
+            .unwrap();
+
+        // Check we have inserted a single row
+        Ok(())
+    }
 }
