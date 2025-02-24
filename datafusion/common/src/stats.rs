@@ -170,12 +170,12 @@ impl Precision<ScalarValue> {
     pub fn add(&self, other: &Precision<ScalarValue>) -> Precision<ScalarValue> {
         match (self, other) {
             (Precision::Exact(a), Precision::Exact(b)) => {
-                a.add(b).map(Precision::Exact).unwrap_or(Precision::Absent)
+                a.add_checked(b).map(Precision::Exact).unwrap_or(Precision::Absent)
             }
             (Precision::Inexact(a), Precision::Exact(b))
             | (Precision::Exact(a), Precision::Inexact(b))
             | (Precision::Inexact(a), Precision::Inexact(b)) => a
-                .add(b)
+                .add_checked(b)
                 .map(Precision::Inexact)
                 .unwrap_or(Precision::Absent),
             (_, _) => Precision::Absent,
@@ -188,12 +188,12 @@ impl Precision<ScalarValue> {
     pub fn sub(&self, other: &Precision<ScalarValue>) -> Precision<ScalarValue> {
         match (self, other) {
             (Precision::Exact(a), Precision::Exact(b)) => {
-                a.sub(b).map(Precision::Exact).unwrap_or(Precision::Absent)
+                a.sub_checked(b).map(Precision::Exact).unwrap_or(Precision::Absent)
             }
             (Precision::Inexact(a), Precision::Exact(b))
             | (Precision::Exact(a), Precision::Inexact(b))
             | (Precision::Inexact(a), Precision::Inexact(b)) => a
-                .sub(b)
+                .sub_checked(b)
                 .map(Precision::Inexact)
                 .unwrap_or(Precision::Absent),
             (_, _) => Precision::Absent,

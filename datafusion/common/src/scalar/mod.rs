@@ -32,7 +32,7 @@ use std::mem::{size_of, size_of_val};
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::arrow_datafusion_err;
+use crate::{_exec_datafusion_err, arrow_datafusion_err};
 use crate::cast::{
     as_decimal128_array, as_decimal256_array, as_dictionary_array,
     as_fixed_size_binary_array, as_fixed_size_list_array,
@@ -1596,8 +1596,18 @@ impl ScalarValue {
     /// NB: operating on `ScalarValue` directly is not efficient, performance sensitive code
     /// should operate on Arrays directly, using vectorized array kernels
     pub fn add_checked<T: Borrow<ScalarValue>>(&self, other: T) -> Result<ScalarValue> {
-        let r = add(&self.to_scalar()?, &other.borrow().to_scalar()?)?;
-        Self::try_from_array(r.as_ref(), 0)
+        Ok(match (self, other.borrow()) {
+            (Self::Int8(Some(l)), Self::Int8(Some(r))) => l.checked_add(*r)
+                .ok_or_else(|| _exec_datafusion_err!("Overflow in addition of Int8({l}, {r})"))?
+                .into(),
+            (Self::Int16(Some(l)), Self::Int16(Some(r))) => l.checked_add(*r)
+                .ok_or_else(|| _exec_datafusion_err!("Overflow in addition of Int16({l}, {r})"))?
+                .into(),
+            _ => {
+                let r = add(&self.to_scalar()?, &other.borrow().to_scalar()?)?;
+                Self::try_from_array(r.as_ref(), 0)?
+            }
+        })
     }
 
     /// Wrapping subtraction of `ScalarValue`
