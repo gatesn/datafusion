@@ -236,7 +236,7 @@ logical_plan
 physical_plan
 01)GlobalLimitExec: skip=5, fetch=3
 02)--CoalescePartitionsExec: fetch=8
-03)----DataSourceExec: partitions=4, partition_sizes=[1, 0, 0, 0], fetch=8
+03)----DataSourceExec: partitions=4, partition_sizes=[1, 0, 0, 0], fetch=8, output_ordering=id@0 ASC NULLS LAST
 
 ####################
 # supports_skip_pushdown(): ListingTable (CSV/JSON/Parquet/Arrow) opts
@@ -299,7 +299,7 @@ logical_plan
 02)--TableScan: skip_parquet projection=[id], fetch=10, skip=15
 physical_plan
 01)GlobalLimitExec: skip=15, fetch=10
-02)--DataSourceExec: file_groups={1 group: [[WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-0.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-1.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-2.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-3.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-4.parquet]]}, projection=[id], limit=25, file_type=parquet
+02)--DataSourceExec: file_groups={1 group: [[WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-0.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-1.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-2.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-3.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-4.parquet]]}, projection=[id], limit=25, output_ordering=[id@0 ASC NULLS LAST], file_type=parquet
 
 # Physical plan with multiple partitions: `GlobalLimitExec` requires a
 # single input partition, so a `CoalescePartitionsExec` is inserted below
@@ -316,7 +316,7 @@ logical_plan
 physical_plan
 01)GlobalLimitExec: skip=15, fetch=10
 02)--CoalescePartitionsExec: fetch=25
-03)----DataSourceExec: file_groups={3 groups: [[WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-0.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-1.parquet], [WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-2.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-3.parquet], [WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-4.parquet]]}, projection=[id], limit=25, file_type=parquet
+03)----DataSourceExec: file_groups={3 groups: [[WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-0.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-1.parquet], [WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-2.parquet, WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-3.parquet], [WORKSPACE_ROOT/datafusion/sqllogictest/test_files/scratch/skip_pushdown/parquet/part-4.parquet]]}, projection=[id], limit=25, output_ordering=[id@0 ASC NULLS LAST], file_type=parquet
 
 statement ok
 reset datafusion.execution.target_partitions;

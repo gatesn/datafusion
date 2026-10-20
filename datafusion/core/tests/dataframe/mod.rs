@@ -7482,6 +7482,104 @@ async fn duplicate_unqualified_name_input(
 }
 
 #[tokio::test]
+async fn ctas_preserves_equivalent_orderings() -> Result<()> {
+    let ctx = SessionContext::new();
+    let batch = record_batch!(("a", Int32, [1, 2, 3]), ("b", Int32, [3, 2, 1]))?;
+    let table =
+        MemTable::try_new(batch.schema(), vec![vec![batch]])?.with_sort_order(vec![
+            vec![col("a").sort(true, true)],
+            vec![col("b").sort(false, false)],
+        ]);
+    ctx.register_table("ordered_input", Arc::new(table))?;
+    ctx.sql("CREATE TABLE ordered_output AS SELECT * FROM ordered_input")
+        .await?;
+    for ordering in ["a ASC NULLS FIRST", "b DESC NULLS LAST"] {
+        let dataframe = ctx
+            .sql(&format!("SELECT * FROM ordered_output ORDER BY {ordering}"))
+            .await?;
+        let plan = physical_plan_to_string(&dataframe).await;
+        assert!(!plan.contains("SortExec:"), "{plan}");
+    }
+    Ok(())
+}
+
+#[rstest]
+#[case(false)]
+#[case(true)]
+#[tokio::test]
+async fn ctas_preserves_partition_ordering(#[case] replace: bool) -> Result<()> {
+    let ctx =
+        SessionContext::new_with_config(SessionConfig::new().with_target_partitions(2));
+    let first = record_batch!(
+        ("a", Int32, [Some(2), Some(1), Some(1), None]),
+        ("b", Int32, [Some(5), None, Some(6), Some(2)])
+    )?;
+    let second = record_batch!(
+        ("a", Int32, [Some(3), Some(1), Some(1), None]),
+        ("b", Int32, [Some(4), None, Some(7), Some(1)])
+    )?;
+    let table = MemTable::try_new(first.schema(), vec![vec![first], vec![second]])?
+        .with_sort_order(vec![vec![
+            col("a").sort(false, false),
+            col("b").sort(true, true),
+        ]]);
+    ctx.register_table("ordered_input", Arc::new(table))?;
+    if replace {
+        ctx.sql("CREATE TABLE ordered_output AS VALUES (0, 0)")
+            .await?;
+    }
+    let create = if replace {
+        "CREATE OR REPLACE"
+    } else {
+        "CREATE"
+    };
+    ctx.sql(&format!(
+        "{create} TABLE ordered_output AS \
+         SELECT b AS value, a AS \"key.with.dot\" FROM ordered_input"
+    ))
+    .await?;
+
+    let plan = ctx
+        .table("ordered_output")
+        .await?
+        .create_physical_plan()
+        .await?;
+    assert_eq!(plan.output_partitioning().partition_count(), 2);
+    assert_eq!(
+        plan.output_ordering().unwrap().to_string(),
+        "key.with.dot@1 DESC NULLS LAST, value@0 ASC"
+    );
+
+    let ordered = ctx
+        .sql(
+            "SELECT * FROM ordered_output \
+         ORDER BY \"key.with.dot\" DESC NULLS LAST, value ASC NULLS FIRST",
+        )
+        .await?;
+    let plan = physical_plan_to_string(&ordered).await;
+    assert!(!plan.contains("SortExec:"), "{plan}");
+    assert!(plan.contains("SortPreservingMergeExec:"), "{plan}");
+    assert_batches_eq!(
+        [
+            "+-------+--------------+",
+            "| value | key.with.dot |",
+            "+-------+--------------+",
+            "| 4     | 3            |",
+            "| 5     | 2            |",
+            "|       | 1            |",
+            "|       | 1            |",
+            "| 6     | 1            |",
+            "| 7     | 1            |",
+            "| 1     |              |",
+            "| 2     |              |",
+            "+-------+--------------+",
+        ],
+        &ordered.collect().await?
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn execute_logical_plan_rejects_duplicate_unqualified_names_in_create_memory_table()
 -> Result<()> {
     let ctx = SessionContext::new();

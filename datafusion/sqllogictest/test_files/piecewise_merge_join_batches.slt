@@ -54,10 +54,9 @@ physical_plan
 05)--------ProjectionExec: expr=[]
 06)----------PiecewiseMergeJoin: operator=Gt, join_type=LeftSemi, on=(CAST(v AS Int64) > value)
 07)------------SortPreservingMergeExec: [CAST(v@0 AS Int64) ASC]
-08)--------------SortExec: expr=[CAST(v@0 AS Int64) ASC], preserve_partitioning=[true]
-09)----------------DataSourceExec: partitions=4, partition_sizes=[2, 1, 1, 1]
-10)------------RepartitionExec: partitioning=RoundRobinBatch(4), input_partitions=1
-11)--------------LazyMemoryExec: partitions=1, batch_generators=[range: start=3, end=8, batch_size=2]
+08)--------------DataSourceExec: partitions=4, partition_sizes=[2, 1, 1, 1], output_ordering=v@0 ASC NULLS LAST
+09)------------RepartitionExec: partitioning=RoundRobinBatch(4), input_partitions=1
+10)--------------LazyMemoryExec: partitions=1, batch_generators=[range: start=3, end=8, batch_size=2]
 
 # Same result the matrix asserts (v > min(3) -> {4..10} = 7).
 query I
@@ -87,7 +86,7 @@ physical_plan
 06)----------PiecewiseMergeJoin: operator=Lt, join_type=Inner, on=(CAST(v AS Int64) < value)
 07)------------SortPreservingMergeExec: [CAST(v@0 AS Int64) DESC NULLS LAST]
 08)--------------SortExec: expr=[CAST(v@0 AS Int64) DESC NULLS LAST], preserve_partitioning=[true]
-09)----------------DataSourceExec: partitions=4, partition_sizes=[2, 1, 1, 1]
+09)----------------DataSourceExec: partitions=4, partition_sizes=[2, 1, 1, 1], output_ordering=v@0 ASC NULLS LAST
 10)------------RepartitionExec: partitioning=RoundRobinBatch(4), input_partitions=1
 11)--------------LazyMemoryExec: partitions=1, batch_generators=[range: start=3, end=8, batch_size=2]
 

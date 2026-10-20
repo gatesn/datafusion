@@ -313,7 +313,7 @@ physical_plan
 04)------AggregateExec: mode=FinalPartitioned, gby=[k@0 as k], aggr=[sum(topk_statistics.v)], statistics=[Rows=Inexact(1000), Bytes=Inexact(73728), [(Col[0]:),(Col[1]:)]]
 05)--------RepartitionExec: partitioning=Hash([k@0], 4), input_partitions=4, statistics=[Rows=Inexact(1000), Bytes=Inexact(73728), [(Col[0]:),(Col[1]:)]]
 06)----------AggregateExec: mode=Partial, gby=[k@0 as k], aggr=[sum(topk_statistics.v)], statistics=[Rows=Inexact(1000), Bytes=Inexact(73728), [(Col[0]:),(Col[1]:)]]
-07)------------DataSourceExec: partitions=4, partition_sizes=[1, 0, 0, 0], statistics=[Rows=Exact(1000), Bytes=Exact(73728), [(Col[0]: Null=Exact(0)),(Col[1]: Null=Exact(0))]]
+07)------------DataSourceExec: partitions=4, partition_sizes=[1, 0, 0, 0], output_ordering=v@1 ASC NULLS LAST, statistics=[Rows=Exact(1000), Bytes=Exact(73728), [(Col[0]: Null=Exact(0)),(Col[1]: Null=Exact(0))]]
 
 statement ok
 DROP TABLE topk_statistics;

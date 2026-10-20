@@ -50,8 +50,8 @@ use crate::{
         DropFunction, DropTable, DropView, Execute, LogicalPlan, LogicalPlanBuilder,
         Prepare, ResetVariable, SetVariable, TableType, UNNAMED_TABLE,
     },
-    physical_expr::PhysicalExpr,
-    physical_plan::ExecutionPlan,
+    physical_expr::{PhysicalExpr, expressions::Column as PhysicalColumn},
+    physical_plan::{ExecutionPlan, ExecutionPlanProperties, collect_partitioned},
     variable::{VarProvider, VarType},
 };
 
@@ -69,7 +69,8 @@ use datafusion_catalog_listing::SchemaSource;
 use datafusion_common::config::{ConfigField, ConfigOptions};
 use datafusion_common::metadata::ScalarAndMetadata;
 use datafusion_common::{
-    DFSchema, DataFusionError, ParamValues, SchemaError, SchemaReference, TableReference,
+    Column, DFSchema, DataFusionError, ParamValues, SchemaError, SchemaReference,
+    TableReference,
     config::{ConfigExtension, TableOptions},
     exec_datafusion_err, exec_err, internal_datafusion_err, not_impl_err,
     plan_datafusion_err, plan_err, schema_err,
@@ -903,13 +904,9 @@ impl SessionContext {
             (false, true, Ok(_)) => {
                 Self::ensure_unique_column_names(input.schema())?;
                 self.deregister_table(name.clone())?;
-                let schema = Arc::clone(input.schema().inner());
-                let physical = DataFrame::new(self.state(), input);
-
-                let batches: Vec<_> = physical.collect_partitioned().await?;
                 let table = Arc::new(
-                    // pass constraints and column defaults to the mem table.
-                    MemTable::try_new(schema, batches)?
+                    self.collect_memory_table(input)
+                        .await?
                         .with_constraints(constraints)
                         .with_column_defaults(column_defaults.into_iter().collect()),
                 );
@@ -922,13 +919,9 @@ impl SessionContext {
             }
             (_, _, Err(_)) => {
                 Self::ensure_unique_column_names(input.schema())?;
-                let schema = Arc::clone(input.schema().inner());
-                let physical = DataFrame::new(self.state(), input);
-
-                let batches: Vec<_> = physical.collect_partitioned().await?;
                 let table = Arc::new(
-                    // pass constraints and column defaults to the mem table.
-                    MemTable::try_new(schema, batches)?
+                    self.collect_memory_table(input)
+                        .await?
                         .with_constraints(constraints)
                         .with_column_defaults(column_defaults.into_iter().collect()),
                 );
@@ -938,6 +931,37 @@ impl SessionContext {
             }
             (false, false, Ok(_)) => exec_err!("Table '{name}' already exists"),
         }
+    }
+
+    async fn collect_memory_table(&self, input: LogicalPlan) -> Result<MemTable> {
+        let schema = Arc::clone(input.schema().inner());
+        let dataframe = DataFrame::new(self.state(), input);
+        let task_ctx = Arc::new(dataframe.task_ctx());
+        let plan = dataframe.create_physical_plan().await?;
+        let sort_order = plan
+            .equivalence_properties()
+            .oeq_class()
+            .iter()
+            .map(|ordering| {
+                // Only a contiguous column prefix can be represented without converting
+                // arbitrary physical expressions back to logical expressions.
+                ordering
+                    .iter()
+                    .map_while(|sort| {
+                        let column = sort.expr.downcast_ref::<PhysicalColumn>()?;
+                        Some(
+                            Expr::Column(Column::new_unqualified(
+                                schema.field(column.index()).name(),
+                            ))
+                            .sort(!sort.options.descending, sort.options.nulls_first),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .filter(|ordering| !ordering.is_empty())
+            .collect();
+        let batches = collect_partitioned(plan, task_ctx).await?;
+        Ok(MemTable::try_new(schema, batches)?.with_sort_order(sort_order))
     }
 
     /// Applies the `TypeCoercion` rewriter to the logical plan.

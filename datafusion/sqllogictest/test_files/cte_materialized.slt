@@ -494,11 +494,11 @@ logical_plan
 09)----------MaterializedCteScan: name=c
 physical_plan
 01)MaterializedCteExec: name=c
-02)--DataSourceExec: partitions=1, partition_sizes=[1]
+02)--DataSourceExec: partitions=1, partition_sizes=[1], output_ordering=k@0 ASC NULLS LAST
 03)--ProjectionExec: expr=[count(Int64(1))@0 as count(*)]
 04)----AggregateExec: mode=Single, gby=[], aggr=[count(Int64(1))]
 05)------HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(k@0, k@0)], projection=[]
-06)--------DataSourceExec: partitions=1, partition_sizes=[13]
+06)--------DataSourceExec: partitions=1, partition_sizes=[13], output_ordering=k@0 ASC NULLS LAST
 07)--------MaterializedCteScanExec: name=c
 
 query TT
@@ -517,8 +517,8 @@ physical_plan
 01)ProjectionExec: expr=[count(Int64(1))@0 as count(*)]
 02)--AggregateExec: mode=Single, gby=[], aggr=[count(Int64(1))]
 03)----HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(k@0, k@0)], projection=[]
-04)------DataSourceExec: partitions=1, partition_sizes=[1]
-05)------DataSourceExec: partitions=1, partition_sizes=[13]
+04)------DataSourceExec: partitions=1, partition_sizes=[1], output_ordering=k@0 ASC NULLS LAST
+05)------DataSourceExec: partitions=1, partition_sizes=[13], output_ordering=k@0 ASC NULLS LAST
 
 statement ok
 DROP TABLE small
